@@ -16,10 +16,14 @@ from app.pipeline.normalize import normalize_records
 def _parse_published_at(value: str | None) -> datetime | None:
     if not value:
         return None
+    normalized = value.strip()
     try:
-        return datetime.strptime(value, "%a, %d %b %Y %H:%M:%S %z")
+        return datetime.strptime(normalized, "%a, %d %b %Y %H:%M:%S %z")
     except ValueError:
-        return None
+        try:
+            return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        except ValueError:
+            return None
 
 
 def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:

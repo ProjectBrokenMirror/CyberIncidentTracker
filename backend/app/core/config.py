@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     api_v1_prefix: str = "/api/v1"
     databreaches_feed_url: str = "https://www.databreaches.net/feed/"
+    hhs_ocr_api_url: str = "https://healthdata.gov/resource/g62h-syeh.json?$limit=100"
     sec_8k_feed_url: str = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-k&company=&dateb=&owner=include&start=0&count=100&output=atom"
     sec_user_agent: str = "IncidentFinder/0.1 (security-research@example.com)"
     connector_max_records: int = 50

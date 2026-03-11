@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from app.connectors.databreach_net import DataBreachesConnector
+from app.connectors.hhs_ocr import HhsOcrConnector
 from app.connectors.sec_8k import Sec8KConnector
 
 
@@ -37,3 +38,24 @@ def test_sec_8k_atom_feed_parses_entries(monkeypatch) -> None:
     assert len(records) == 1
     assert records[0].source_name == "sec_edgar_8k"
     assert records[0].organization_name == "ACME CORP"
+
+
+def test_hhs_ocr_json_parses_entries(monkeypatch) -> None:
+    payload = [
+        {
+            "name_of_covered_entity": "Sample Health System",
+            "type_of_breach": "Hacking/IT Incident",
+            "breach_submission_date": "2026-03-11T12:00:00.000",
+        }
+    ]
+
+    def fake_get(*args, **kwargs):
+        return SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None)
+
+    monkeypatch.setattr("app.connectors.hhs_ocr.httpx.get", fake_get)
+    connector = HhsOcrConnector()
+    records = connector.fetch()
+
+    assert len(records) == 1
+    assert records[0].source_name == "hhs_ocr"
+    assert records[0].organization_name == "Sample Health System"
