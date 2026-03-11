@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:16
     container_name: incident-tracker-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: incident_user
       POSTGRES_PASSWORD: incident_pass
@@ -16,6 +17,7 @@ services:
   redis:
     image: redis:7
     container_name: incident-tracker-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:

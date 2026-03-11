@@ -29,6 +29,9 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
    - `cd backend && source .venv/bin/activate && celery -A app.tasks.worker.celery_app beat --loglevel=info`
 7. Optional bulk vendor onboarding:
    - `POST /api/v1/vendors/import` to create many vendors from organizations in one request.
+8. Optional no-terminal deployment mode:
+   - Use systemd units in `infra/systemd/` (API, worker, beat, frontend).
+   - Optional Nginx reverse proxy config in `infra/nginx/cyberincident.conf`.
 
 ## VPS Preflight
 
