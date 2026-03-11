@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     sec_8k_feed_url: str = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-k&company=&dateb=&owner=include&start=0&count=100&output=atom"
     sec_user_agent: str = "IncidentFinder/0.1 (security-research@example.com)"
     connector_max_records: int = 50
+    auto_create_org_sources: str = "sec_edgar_8k,hhs_ocr"
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     trusted_hosts: str = "localhost,127.0.0.1,testserver"
 

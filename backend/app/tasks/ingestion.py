@@ -1,12 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.connectors.registry import wave1_connectors
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.incident import Incident
 from app.models.incident_source import IncidentSource
+from app.models.organization import Organization
 from app.pipeline.confidence import score_confidence
 from app.pipeline.dedup import deduplicate
 from app.pipeline.entity_match import match_organization
@@ -33,6 +35,12 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
     total_persisted = 0
     total_unmatched = 0
     total_skipped_duplicates = 0
+    total_organizations_created = 0
+    auto_create_sources = {
+        source.strip()
+        for source in settings.auto_create_org_sources.split(",")
+        if source.strip()
+    }
 
     owns_session = db is None
     if owns_session:
@@ -49,15 +57,8 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
             total_deduped += len(deduped)
 
             for item in deduped:
-                matched = match_organization(item, db)
-                scored = score_confidence(matched)
-                org_id = scored.get("matched_org_id")
-                if not org_id:
-                    total_unmatched += 1
-                    continue
-
-                source_name = scored.get("source_name", "unknown")
-                source_url = scored.get("source_url", "")
+                source_name = item.get("source_name", "unknown")
+                source_url = item.get("source_url", "")
                 if not source_url:
                     total_unmatched += 1
                     continue
@@ -67,6 +68,28 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
                 ).scalar_one()
                 if duplicate_exists:
                     total_skipped_duplicates += 1
+                    continue
+
+                matched = match_organization(item, db)
+                scored = score_confidence(matched)
+                org_id = scored.get("matched_org_id")
+                if not org_id and source_name in auto_create_sources:
+                    org_name = (scored.get("organization_name") or "").strip()
+                    if org_name:
+                        existing_org = db.execute(
+                            select(Organization).where(func.lower(Organization.canonical_name) == org_name.lower()).limit(1)
+                        ).scalars().first()
+                        if existing_org:
+                            org_id = existing_org.id
+                        else:
+                            new_org = Organization(canonical_name=org_name, domain=None)
+                            db.add(new_org)
+                            db.flush()
+                            org_id = new_org.id
+                            total_organizations_created += 1
+
+                if not org_id:
+                    total_unmatched += 1
                     continue
 
                 incident = Incident(
@@ -99,4 +122,5 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
         "total_persisted": total_persisted,
         "total_unmatched": total_unmatched,
         "total_skipped_duplicates": total_skipped_duplicates,
+        "total_organizations_created": total_organizations_created,
     }
