@@ -1,0 +1,20 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    app_env: str = "development"
+    app_name: str = "Cyber Incident Tracker API"
+    database_url: str = "postgresql+psycopg://incident_user:incident_pass@localhost:5432/incident_tracker"
+    redis_url: str = "redis://localhost:6379/0"
+    api_v1_prefix: str = "/api/v1"
+    databreaches_feed_url: str = "https://www.databreaches.net/feed/"
+    sec_8k_feed_url: str = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-k&company=&dateb=&owner=include&start=0&count=100&output=atom"
+    sec_user_agent: str = "IncidentFinder/0.1 (security-research@example.com)"
+    connector_max_records: int = 50
+    allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    trusted_hosts: str = "localhost,127.0.0.1,testserver"
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+
+settings = Settings()

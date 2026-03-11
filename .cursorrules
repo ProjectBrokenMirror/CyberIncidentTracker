@@ -1,0 +1,11 @@
+Project: cyberincident-tracker
+
+Conventions:
+- Backend stack is Python + FastAPI.
+- API routes are versioned under /api/v1.
+- New ingestion sources must include:
+  - connector module
+  - source policy matrix entry
+  - connector contract tests
+- Incident records are append-only timelines; do not delete source lineage.
+- Keep tenant-aware access checks explicit in service or route handlers.
