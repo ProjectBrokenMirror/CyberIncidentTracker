@@ -23,6 +23,7 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
    - `cd backend && source .venv/bin/activate && uvicorn app.main:app --reload`
 5. Start frontend:
    - `cd frontend && npm install && npm run dev`
+   - Optional API URL override: copy `frontend/.env.local.example` to `frontend/.env.local`
 6. Optional: start worker/beat:
    - `cd backend && source .venv/bin/activate && celery -A app.tasks.worker.celery_app worker --loglevel=info`
    - `cd backend && source .venv/bin/activate && celery -A app.tasks.worker.celery_app beat --loglevel=info`
