@@ -1,4 +1,5 @@
 import logging
+import re
 import xml.etree.ElementTree as ET
 
 import httpx
@@ -68,7 +69,15 @@ class Sec8KConnector(SourceConnector):
 
         left, right = parts[0], parts[1]
         if left.upper() in SEC_FORM_TYPES:
-            return right
+            return Sec8KConnector._normalize_org_name(right)
         if right.upper() in SEC_FORM_TYPES:
-            return left
-        return left
+            return Sec8KConnector._normalize_org_name(left)
+        return Sec8KConnector._normalize_org_name(left)
+
+    @staticmethod
+    def _normalize_org_name(name: str | None) -> str | None:
+        if not name:
+            return None
+        normalized = re.sub(r"\s+\(\d{6,}\)\s+\(Filer\)$", "", name).strip()
+        normalized = re.sub(r"\s+\(Filer\)$", "", normalized).strip()
+        return normalized or None

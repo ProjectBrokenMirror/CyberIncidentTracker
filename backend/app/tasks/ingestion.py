@@ -7,6 +7,7 @@ from app.connectors.registry import wave1_connectors
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.incident import Incident
+from app.models.ingestion_run import IngestionRun
 from app.models.incident_source import IncidentSource
 from app.models.organization import Organization
 from app.pipeline.confidence import score_confidence
@@ -29,6 +30,7 @@ def _parse_published_at(value: str | None) -> datetime | None:
 
 
 def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
+    started_at = datetime.now()
     total_raw = 0
     total_normalized = 0
     total_deduped = 0
@@ -116,6 +118,21 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
                 )
                 seen_source_keys_in_run.add(source_key)
                 total_persisted += 1
+        finished_at = datetime.now()
+        db.add(
+            IngestionRun(
+                started_at=started_at,
+                finished_at=finished_at,
+                status="success",
+                total_raw=total_raw,
+                total_normalized=total_normalized,
+                total_deduped=total_deduped,
+                total_persisted=total_persisted,
+                total_unmatched=total_unmatched,
+                total_skipped_duplicates=total_skipped_duplicates,
+                total_organizations_created=total_organizations_created,
+            )
+        )
         db.commit()
     finally:
         if owns_session:

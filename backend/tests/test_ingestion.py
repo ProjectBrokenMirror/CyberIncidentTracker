@@ -1,5 +1,6 @@
 from app.connectors.base import RawIncidentRecord, SourceConnector
 from app.models.incident import Incident
+from app.models.ingestion_run import IngestionRun
 from app.models.incident_source import IncidentSource
 from app.models.organization import Organization
 from app.tasks.ingestion import run_wave1_ingestion
@@ -46,8 +47,10 @@ def test_run_wave1_ingestion_persists_incidents(monkeypatch, db_session) -> None
 
     incidents = db_session.query(Incident).all()
     sources = db_session.query(IncidentSource).all()
+    runs = db_session.query(IngestionRun).all()
     assert len(incidents) == 1
     assert len(sources) == 1
+    assert len(runs) == 1
 
 
 def test_run_wave1_ingestion_auto_creates_org_for_trusted_source(monkeypatch, db_session) -> None:
@@ -61,9 +64,11 @@ def test_run_wave1_ingestion_auto_creates_org_for_trusted_source(monkeypatch, db
 
     orgs = db_session.query(Organization).all()
     incidents = db_session.query(Incident).all()
+    runs = db_session.query(IngestionRun).all()
     assert len(orgs) == 1
     assert orgs[0].canonical_name == "NewCo Inc"
     assert len(incidents) == 1
+    assert len(runs) == 1
 
 
 def test_run_wave1_ingestion_skips_duplicate_sources(monkeypatch, db_session) -> None:
@@ -80,5 +85,7 @@ def test_run_wave1_ingestion_skips_duplicate_sources(monkeypatch, db_session) ->
 
     incidents = db_session.query(Incident).all()
     sources = db_session.query(IncidentSource).all()
+    runs = db_session.query(IngestionRun).all()
     assert len(incidents) == 1
     assert len(sources) == 1
+    assert len(runs) == 2

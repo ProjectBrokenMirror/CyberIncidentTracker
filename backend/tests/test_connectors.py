@@ -60,6 +60,26 @@ def test_sec_8k_atom_feed_parses_form_prefix_format(monkeypatch) -> None:
     assert records[0].organization_name == "GLOBEX CORP"
 
 
+def test_sec_8k_org_name_normalization_strips_filer_suffix(monkeypatch) -> None:
+    atom_payload = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>8-K - Blue Bird Corp (0001589526) (Filer) - Current report filing</title>
+    <updated>2026-03-11T17:45:00-04:00</updated>
+    <link href="https://www.sec.gov/ixviewer/ix.html?doc=/Archives/example3.htm" />
+  </entry>
+</feed>
+"""
+
+    def fake_get(*args, **kwargs):
+        return SimpleNamespace(text=atom_payload, raise_for_status=lambda: None)
+
+    monkeypatch.setattr("app.connectors.sec_8k.httpx.get", fake_get)
+    records = Sec8KConnector().fetch()
+    assert len(records) == 1
+    assert records[0].organization_name == "Blue Bird Corp"
+
+
 def test_hhs_ocr_parses_entries(monkeypatch) -> None:
     frontpage = """
 <html><body>
