@@ -27,6 +27,8 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
 6. Optional: start worker/beat:
    - `cd backend && source .venv/bin/activate && celery -A app.tasks.worker.celery_app worker --loglevel=info`
    - `cd backend && source .venv/bin/activate && celery -A app.tasks.worker.celery_app beat --loglevel=info`
+7. Optional bulk vendor onboarding:
+   - `POST /api/v1/vendors/import` to create many vendors from organizations in one request.
 
 ## VPS Preflight
 
@@ -36,3 +38,4 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
   - `SEC_USER_AGENT` with a real contact email (required best practice for SEC endpoints)
 - Run smoke checks:
   - `cd backend && source .venv/bin/activate && bash scripts/smoke_check.sh`
+- To avoid many open terminals in VPS environments, install the sample systemd units in `infra/systemd/`.

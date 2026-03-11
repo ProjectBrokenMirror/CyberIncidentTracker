@@ -1,0 +1,15 @@
+[Unit]
+Description=Cyber Incident Tracker Celery Beat
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/apps/CyberIncidentTracker/backend
+EnvironmentFile=/root/apps/CyberIncidentTracker/backend/.env
+ExecStart=/root/apps/CyberIncidentTracker/backend/.venv/bin/celery -A app.tasks.worker.celery_app beat --loglevel=info --schedule /tmp/cyberincident-beat.schedule
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

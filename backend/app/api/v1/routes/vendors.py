@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.models.incident import Incident
 from app.models.organization import Organization
 from app.models.vendor import Vendor
-from app.schemas.vendor import VendorCreate, VendorRead, VendorSummaryRead
+from app.schemas.vendor import VendorCreate, VendorImportRequest, VendorImportResult, VendorRead, VendorSummaryRead
 
 router = APIRouter()
 
@@ -30,9 +30,51 @@ def create_vendor(payload: VendorCreate, db: Session = Depends(get_db)) -> Vendo
     return VendorRead.model_validate(vendor, from_attributes=True)
 
 
-@router.post("/import")
-def import_vendors() -> dict[str, str]:
-    return {"status": "not_implemented"}
+@router.post("/import", response_model=VendorImportResult)
+def import_vendors(payload: VendorImportRequest, db: Session = Depends(get_db)) -> VendorImportResult:
+    org_query = select(Organization.id)
+    if payload.organization_ids:
+        org_query = org_query.where(Organization.id.in_(payload.organization_ids))
+
+    if payload.only_with_incidents:
+        org_query = org_query.join(Incident, Incident.org_id == Organization.id).group_by(Organization.id)
+
+    org_ids = [row[0] for row in db.execute(org_query.order_by(Organization.id.desc()).limit(payload.limit)).all()]
+    if not org_ids:
+        return VendorImportResult(
+            requested_count=0,
+            created_count=0,
+            skipped_existing_count=0,
+            created_vendor_ids=[],
+        )
+
+    existing_vendor_org_ids = {
+        row[0]
+        for row in db.execute(select(Vendor.organization_id).where(Vendor.organization_id.in_(org_ids))).all()
+    }
+
+    created_vendor_ids: list[int] = []
+    skipped_existing_count = 0
+    for org_id in org_ids:
+        if org_id in existing_vendor_org_ids:
+            skipped_existing_count += 1
+            continue
+        vendor = Vendor(
+            organization_id=org_id,
+            owner=payload.owner,
+            criticality=payload.criticality,
+        )
+        db.add(vendor)
+        db.flush()
+        created_vendor_ids.append(vendor.id)
+
+    db.commit()
+    return VendorImportResult(
+        requested_count=len(org_ids),
+        created_count=len(created_vendor_ids),
+        skipped_existing_count=skipped_existing_count,
+        created_vendor_ids=created_vendor_ids,
+    )
 
 
 @router.get("/summary")
