@@ -52,10 +52,14 @@ class HhsOcrConnector(SourceConnector):
             return []
 
         tbody_html = body_match.group(1)
-        rows = re.findall(r"<tr\b[^>]*>(.*?)</tr>", tbody_html, re.DOTALL | re.IGNORECASE)
+        rows = re.finditer(r"<tr\b([^>]*)>(.*?)</tr>", tbody_html, re.DOTALL | re.IGNORECASE)
 
         records: list[RawIncidentRecord] = []
-        for row_html in rows[: settings.connector_max_records]:
+        for idx, row_match in enumerate(rows):
+            if idx >= settings.connector_max_records:
+                break
+            row_attrs = row_match.group(1) or ""
+            row_html = row_match.group(2) or ""
             cells = re.findall(r"<td\b[^>]*>(.*?)</td>", row_html, re.DOTALL | re.IGNORECASE)
             # Table columns include a leading row-toggler cell.
             if len(cells) < 8:
@@ -63,6 +67,8 @@ class HhsOcrConnector(SourceConnector):
             org_name = self._clean_cell(cells[1])
             submission_date = self._clean_cell(cells[5]) or None
             breach_type = self._clean_cell(cells[6]) or "Breach"
+            row_key_match = re.search(r'data-rk="([^"]+)"', row_attrs)
+            row_key = row_key_match.group(1) if row_key_match else f"{idx}"
 
             if not org_name:
                 continue
@@ -70,7 +76,7 @@ class HhsOcrConnector(SourceConnector):
             records.append(
                 RawIncidentRecord(
                     source_name=self.source_name,
-                    source_url=settings.hhs_ocr_report_url,
+                    source_url=f"{settings.hhs_ocr_report_url}#rk={row_key}",
                     title=f"{org_name}: {breach_type}",
                     published_at=submission_date,
                     organization_name=org_name,

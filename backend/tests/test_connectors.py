@@ -105,3 +105,4 @@ def test_hhs_ocr_parses_entries(monkeypatch) -> None:
     assert len(records) == 1
     assert records[0].source_name == "hhs_ocr"
     assert records[0].organization_name == "Sample Health System"
+    assert "#rk=" in records[0].source_url

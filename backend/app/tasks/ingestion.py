@@ -41,6 +41,7 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
         for source in settings.auto_create_org_sources.split(",")
         if source.strip()
     }
+    seen_source_keys_in_run: set[tuple[str, str]] = set()
 
     owns_session = db is None
     if owns_session:
@@ -61,6 +62,10 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
                 source_url = item.get("source_url", "")
                 if not source_url:
                     total_unmatched += 1
+                    continue
+                source_key = (source_name, source_url)
+                if source_key in seen_source_keys_in_run:
+                    total_skipped_duplicates += 1
                     continue
 
                 duplicate_exists = db.execute(
@@ -109,6 +114,7 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
                         published_at=_parse_published_at(scored.get("published_at")),
                     )
                 )
+                seen_source_keys_in_run.add(source_key)
                 total_persisted += 1
         db.commit()
     finally:
