@@ -41,18 +41,44 @@ def test_sec_8k_atom_feed_parses_entries(monkeypatch) -> None:
 
 
 def test_hhs_ocr_json_parses_entries(monkeypatch) -> None:
-    payload = [
-        {
-            "name_of_covered_entity": "Sample Health System",
-            "type_of_breach": "Hacking/IT Incident",
-            "breach_submission_date": "2026-03-11T12:00:00.000",
-        }
-    ]
+    frontpage = """
+<html><body>
+  <input type="hidden" name="javax.faces.ViewState" value="abc123" />
+</body></html>
+"""
+    report_page = """
+<html><body>
+  <table>
+    <tbody id="ocrForm:reportResultTable_data">
+      <tr>
+        <td></td>
+        <td><span>Sample Health System</span></td>
+        <td>TX</td>
+        <td>Healthcare Provider</td>
+        <td>1234</td>
+        <td>03/11/2026</td>
+        <td><span>Hacking/IT Incident</span></td>
+        <td><span>Network Server</span></td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>
+"""
 
-    def fake_get(*args, **kwargs):
-        return SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None)
+    class FakeClient:
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr("app.connectors.hhs_ocr.httpx.get", fake_get)
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, *args, **kwargs):
+            return SimpleNamespace(text=frontpage, raise_for_status=lambda: None)
+
+        def post(self, *args, **kwargs):
+            return SimpleNamespace(text=report_page, raise_for_status=lambda: None)
+
+    monkeypatch.setattr("app.connectors.hhs_ocr.httpx.Client", lambda **kwargs: FakeClient())
     connector = HhsOcrConnector()
     records = connector.fetch()
 
