@@ -1,6 +1,6 @@
 import logging
+from html import unescape
 import re
-import xml.etree.ElementTree as ET
 
 import httpx
 
@@ -42,26 +42,27 @@ class HhsOcrConnector(SourceConnector):
         return match.group(1) if match else None
 
     def _parse_report_rows(self, html: str) -> list[RawIncidentRecord]:
-        try:
-            root = ET.fromstring(html)
-        except ET.ParseError:
-            logger.warning("HHS OCR report page parsing failed")
-            return []
-
-        table_body = root.find(".//*[@id='ocrForm:reportResultTable_data']")
-        if table_body is None:
+        body_match = re.search(
+            r'<tbody[^>]*id="ocrForm:reportResultTable_data"[^>]*>(.*?)</tbody>',
+            html,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if not body_match:
             logger.warning("HHS OCR report table not found")
             return []
 
+        tbody_html = body_match.group(1)
+        rows = re.findall(r"<tr\b[^>]*>(.*?)</tr>", tbody_html, re.DOTALL | re.IGNORECASE)
+
         records: list[RawIncidentRecord] = []
-        for row in table_body.findall("tr")[: settings.connector_max_records]:
-            cells = row.findall("td")
+        for row_html in rows[: settings.connector_max_records]:
+            cells = re.findall(r"<td\b[^>]*>(.*?)</td>", row_html, re.DOTALL | re.IGNORECASE)
             # Table columns include a leading row-toggler cell.
             if len(cells) < 8:
                 continue
-            org_name = "".join(cells[1].itertext()).strip()
-            submission_date = "".join(cells[5].itertext()).strip() or None
-            breach_type = "".join(cells[6].itertext()).strip() or "Breach"
+            org_name = self._clean_cell(cells[1])
+            submission_date = self._clean_cell(cells[5]) or None
+            breach_type = self._clean_cell(cells[6]) or "Breach"
 
             if not org_name:
                 continue
@@ -76,3 +77,9 @@ class HhsOcrConnector(SourceConnector):
                 )
             )
         return records
+
+    @staticmethod
+    def _clean_cell(cell_html: str) -> str:
+        text = re.sub(r"<[^>]+>", " ", cell_html)
+        text = unescape(text)
+        return re.sub(r"\s+", " ", text).strip()

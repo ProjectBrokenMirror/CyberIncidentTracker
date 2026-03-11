@@ -7,6 +7,7 @@ from app.connectors.base import RawIncidentRecord, SourceConnector
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+SEC_FORM_TYPES = {"8-K", "8K", "8-K/A", "6-K", "10-K", "10-Q"}
 
 
 class Sec8KConnector(SourceConnector):
@@ -45,8 +46,7 @@ class Sec8KConnector(SourceConnector):
             if not title or not source_url:
                 continue
 
-            # SEC title format often starts with company name before a dash.
-            organization_name = title.split(" - ")[0].strip() if " - " in title else None
+            organization_name = self._extract_org_name(title)
             records.append(
                 RawIncidentRecord(
                     source_name=self.source_name,
@@ -57,3 +57,18 @@ class Sec8KConnector(SourceConnector):
                 )
             )
         return records
+
+    @staticmethod
+    def _extract_org_name(title: str) -> str | None:
+        parts = [part.strip() for part in title.split(" - ") if part.strip()]
+        if not parts:
+            return None
+        if len(parts) == 1:
+            return None if parts[0].upper() in SEC_FORM_TYPES else parts[0]
+
+        left, right = parts[0], parts[1]
+        if left.upper() in SEC_FORM_TYPES:
+            return right
+        if right.upper() in SEC_FORM_TYPES:
+            return left
+        return left
