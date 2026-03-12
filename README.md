@@ -50,6 +50,9 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
   - `GET /api/v1/vendors/{vendor_id}/watchers` to list active/inactive watchers
 - Ops metrics endpoint: `GET /api/v1/ops/alerts/metrics`.
 - Email alert config lives in `backend/.env` (`ENABLE_EMAIL_ALERTS`, `SMTP_*`, `ALERTS_FROM_EMAIL`).
+- Failed email sends are retried by Celery beat every 5 minutes with exponential backoff:
+  - `ALERT_RETRY_MAX_ATTEMPTS`
+  - `ALERT_RETRY_BACKOFF_SECONDS`
 
 ## VPS Preflight
 

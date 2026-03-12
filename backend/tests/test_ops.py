@@ -77,5 +77,7 @@ def test_alert_metrics_endpoint_returns_counts(client, db_session) -> None:
     assert payload["total_events"] == 3
     assert payload["sent_events"] == 1
     assert payload["failed_events"] == 1
+    assert payload["failed_exhausted_events"] == 0
     assert payload["skipped_events"] == 1
+    assert payload["retryable_failed_events"] == 1
     assert payload["last_24h_total"] == 2

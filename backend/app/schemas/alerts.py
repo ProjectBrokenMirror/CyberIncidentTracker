@@ -20,7 +20,9 @@ class AlertMetricsRead(BaseModel):
     total_events: int
     sent_events: int
     failed_events: int
+    failed_exhausted_events: int
     skipped_events: int
+    retryable_failed_events: int
     last_24h_total: int
     last_24h_sent: int
     last_24h_failed: int

@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     smtp_username: str = ""
     smtp_password: str = ""
     alerts_from_email: str = "alerts@incidentfinder.local"
+    alert_retry_max_attempts: int = 3
+    alert_retry_backoff_seconds: int = 60
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     trusted_hosts: str = "localhost,127.0.0.1,testserver"
 
