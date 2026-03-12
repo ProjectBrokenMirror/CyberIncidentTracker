@@ -27,7 +27,7 @@ export default function WatchersManager({
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(`/api/vendors/${vendorId}/watchers`, {
+      const response = await fetch(`/internal/vendors/${vendorId}/watchers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, is_active: true }),
@@ -53,7 +53,7 @@ export default function WatchersManager({
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(`/api/vendors/${vendorId}/watchers/${watcherId}`, {
+      const response = await fetch(`/internal/vendors/${vendorId}/watchers/${watcherId}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -64,6 +64,28 @@ export default function WatchersManager({
       setWatchers((prev) => prev.map((item) => (item.id === watcherId ? updated : item)));
     } catch {
       setError("Failed to remove watcher.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleReactivate(watcher: VendorWatcher) {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(`/internal/vendors/${vendorId}/watchers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: watcher.email, is_active: true }),
+      });
+      if (!response.ok) {
+        setError("Failed to reactivate watcher.");
+        return;
+      }
+      const updated = (await response.json()) as VendorWatcher;
+      setWatchers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    } catch {
+      setError("Failed to reactivate watcher.");
     } finally {
       setSaving(false);
     }
@@ -122,7 +144,9 @@ export default function WatchersManager({
                       Remove
                     </button>
                   ) : (
-                    <span>-</span>
+                    <button type="button" disabled={saving} onClick={() => handleReactivate(watcher)}>
+                      Reactivate
+                    </button>
                   )}
                 </td>
               </tr>
