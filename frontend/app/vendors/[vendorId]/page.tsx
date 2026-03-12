@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerApiHeaders } from "../../lib/apiHeaders";
+import WatchersManager from "./WatchersManager";
 
 type IncidentItem = {
   id: number;
@@ -15,6 +16,14 @@ type VendorIncidentPayload = {
   organization_id: number;
   organization_name: string | null;
   items: IncidentItem[];
+};
+
+type VendorWatcher = {
+  id: number;
+  vendor_id: number;
+  email: string;
+  is_active: boolean;
+  created_at: string;
 };
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -34,8 +43,25 @@ async function fetchVendorIncidents(vendorId: string): Promise<VendorIncidentPay
   }
 }
 
+async function fetchVendorWatchers(vendorId: string): Promise<VendorWatcher[]> {
+  try {
+    const response = await fetch(`${apiBase}/api/v1/vendors/${vendorId}/watchers`, {
+      cache: "no-store",
+      headers: getServerApiHeaders(),
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const payload = (await response.json()) as { items?: VendorWatcher[] };
+    return payload.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function VendorDetailPage({ params }: { params: { vendorId: string } }) {
   const payload = await fetchVendorIncidents(params.vendorId);
+  const watchers = await fetchVendorWatchers(params.vendorId);
 
   return (
     <main style={{ padding: "2rem", fontFamily: "Inter, sans-serif" }}>
@@ -93,6 +119,7 @@ export default async function VendorDetailPage({ params }: { params: { vendorId:
               </tbody>
             </table>
           )}
+          <WatchersManager vendorId={payload.vendor_id} initialWatchers={watchers} />
         </>
       )}
     </main>

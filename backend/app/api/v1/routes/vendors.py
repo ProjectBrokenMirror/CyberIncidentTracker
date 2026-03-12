@@ -237,3 +237,33 @@ def create_vendor_watcher(
     db.commit()
     db.refresh(watcher)
     return VendorWatcherRead.model_validate(watcher, from_attributes=True)
+
+
+@router.delete("/{vendor_id}/watchers/{watcher_id}", response_model=VendorWatcherRead)
+def deactivate_vendor_watcher(
+    vendor_id: int,
+    watcher_id: int,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> VendorWatcherRead:
+    vendor = db.execute(
+        select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
+    ).scalar_one_or_none()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    watcher = db.execute(
+        select(VendorWatcher).where(
+            VendorWatcher.id == watcher_id,
+            VendorWatcher.vendor_id == vendor_id,
+            VendorWatcher.tenant_id == auth.tenant_id,
+        )
+    ).scalar_one_or_none()
+    if watcher is None:
+        raise HTTPException(status_code=404, detail="Watcher not found")
+
+    watcher.is_active = False
+    db.add(watcher)
+    db.commit()
+    db.refresh(watcher)
+    return VendorWatcherRead.model_validate(watcher, from_attributes=True)

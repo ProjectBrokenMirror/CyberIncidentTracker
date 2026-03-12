@@ -199,3 +199,10 @@ def test_vendor_watchers_create_and_list(client) -> None:
     # Tenant B cannot access tenant A vendor watchers.
     denied = client.get(f"/api/v1/vendors/{vendor_id}/watchers", headers={"X-Tenant-ID": "tenant-b"})
     assert denied.status_code == 404
+
+    deactivate = client.delete(
+        f"/api/v1/vendors/{vendor_id}/watchers/{create.json()['id']}",
+        headers={"X-Tenant-ID": "tenant-a"},
+    )
+    assert deactivate.status_code == 200
+    assert deactivate.json()["is_active"] is False
