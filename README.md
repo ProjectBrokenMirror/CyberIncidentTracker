@@ -43,12 +43,19 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
   - `API_KEYS=replace-with-long-random-key`
 - When enabled, include `X-API-Key` on all API calls.
 - Vendor endpoints are tenant-scoped by `X-Tenant-ID` (defaults to `DEFAULT_TENANT_ID`).
-- Frontend server-side fetches can send these headers via `frontend/.env.local` (`API_SERVER_KEY`, `API_TENANT_ID`).
+- Frontend server-side fetches can send these headers via `frontend/.env.local` (`API_SERVER_KEY`, `API_TENANT_ID`, `API_USER_ROLE`).
+- Role separation for watchlist changes:
+  - mutating watcher endpoints require manager role (`X-User-Role: manager` or `admin`)
+  - read-only endpoints remain available to viewers
 - New endpoint: `GET /api/v1/vendors/{vendor_id}/incidents` returns a vendor-linked incident timeline.
 - Watcher endpoints:
   - `POST /api/v1/vendors/{vendor_id}/watchers` to subscribe an email to a vendor
   - `GET /api/v1/vendors/{vendor_id}/watchers` to list active/inactive watchers
+- CSV exports:
+  - `GET /api/v1/vendors/{vendor_id}/incidents.csv`
+  - `GET /api/v1/vendors/{vendor_id}/alerts.csv`
 - Ops metrics endpoint: `GET /api/v1/ops/alerts/metrics`.
+- Ops audit endpoint: `GET /api/v1/ops/audit-events`.
 - Email alert config lives in `backend/.env` (`ENABLE_EMAIL_ALERTS`, `SMTP_*`, `ALERTS_FROM_EMAIL`).
 - Failed email sends are retried by Celery beat every 5 minutes with exponential backoff:
   - `ALERT_RETRY_MAX_ATTEMPTS`

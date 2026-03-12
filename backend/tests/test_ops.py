@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from app.models.audit_event import AuditEvent
 from app.models.ingestion_run import IngestionRun
 from app.models.incident import Incident
 from app.models.notification_event import NotificationEvent
@@ -81,3 +82,23 @@ def test_alert_metrics_endpoint_returns_counts(client, db_session) -> None:
     assert payload["skipped_events"] == 1
     assert payload["retryable_failed_events"] == 1
     assert payload["last_24h_total"] == 2
+
+
+def test_audit_events_endpoint_returns_recent_events(client, db_session) -> None:
+    db_session.add(
+        AuditEvent(
+            tenant_id="default",
+            actor_role="manager",
+            action="watcher_created",
+            resource_type="vendor_watcher",
+            resource_id="1",
+            details='{"email":"audit@example.com"}',
+        )
+    )
+    db_session.commit()
+
+    response = client.get("/api/v1/ops/audit-events")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["action"] == "watcher_created"

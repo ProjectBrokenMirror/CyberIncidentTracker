@@ -79,6 +79,12 @@ export default async function VendorDetailPage({ params }: { params: { vendorId:
           <p>
             Vendor #{payload.vendor_id} | Organization #{payload.organization_id}
           </p>
+          <p style={{ marginTop: "0.5rem" }}>
+            <a href={`/internal/vendors/${payload.vendor_id}/incidents.csv`} style={{ marginRight: "1rem" }}>
+              Download incidents CSV
+            </a>
+            <a href={`/internal/vendors/${payload.vendor_id}/alerts.csv`}>Download alerts CSV</a>
+          </p>
           <h2 style={{ marginTop: "1.5rem" }}>Incident Timeline</h2>
           {payload.items.length === 0 ? (
             <p>No incidents found for this vendor's organization.</p>

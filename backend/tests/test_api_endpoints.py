@@ -206,3 +206,39 @@ def test_vendor_watchers_create_and_list(client) -> None:
     )
     assert deactivate.status_code == 200
     assert deactivate.json()["is_active"] is False
+
+
+def test_watchers_mutation_requires_manager_role(client) -> None:
+    org_id = client.post("/api/v1/organizations/", json={"canonical_name": "Role Org"}).json()["id"]
+    vendor_id = client.post(
+        "/api/v1/vendors/",
+        json={"organization_id": org_id, "owner": "Risk Team", "criticality": "high"},
+        headers={"X-Tenant-ID": "tenant-a"},
+    ).json()["id"]
+
+    denied = client.post(
+        f"/api/v1/vendors/{vendor_id}/watchers",
+        json={"email": "viewer@example.com", "is_active": True},
+        headers={"X-Tenant-ID": "tenant-a", "X-User-Role": "viewer"},
+    )
+    assert denied.status_code == 403
+
+
+def test_vendor_csv_exports(client) -> None:
+    org_id = client.post("/api/v1/organizations/", json={"canonical_name": "Export Org"}).json()["id"]
+    vendor_id = client.post(
+        "/api/v1/vendors/",
+        json={"organization_id": org_id, "owner": "Risk Team", "criticality": "high"},
+    ).json()["id"]
+    client.post(
+        "/api/v1/incidents/",
+        json={"org_id": org_id, "incident_type": "data_breach", "status": "new", "severity": "high", "confidence": 0.9},
+    )
+
+    incidents_csv = client.get(f"/api/v1/vendors/{vendor_id}/incidents.csv")
+    alerts_csv = client.get(f"/api/v1/vendors/{vendor_id}/alerts.csv")
+    assert incidents_csv.status_code == 200
+    assert alerts_csv.status_code == 200
+    assert incidents_csv.headers["content-type"].startswith("text/csv")
+    assert "incident_id" in incidents_csv.text
+    assert "event_id" in alerts_csv.text

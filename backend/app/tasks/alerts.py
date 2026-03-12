@@ -9,6 +9,7 @@ from app.models.incident import Incident
 from app.models.notification_event import NotificationEvent
 from app.models.vendor import Vendor
 from app.models.vendor_watcher import VendorWatcher
+from app.services.audit import log_audit_event
 
 
 def _next_retry_time(attempt_count: int) -> datetime:
@@ -132,6 +133,20 @@ def dispatch_alerts_for_incident(
             elif did_fail:
                 failed += 1
             db.add(event)
+            db.flush()
+            log_audit_event(
+                db,
+                tenant_id=vendor.tenant_id,
+                actor_role="system",
+                action=f"alert_{event.status}",
+                resource_type="notification_event",
+                resource_id=str(event.id),
+                details={
+                    "vendor_id": vendor.id,
+                    "incident_id": incident.id,
+                    "recipient_email": watcher.email,
+                },
+            )
 
     return {"attempted": attempted, "sent": sent, "failed": failed}
 
@@ -171,6 +186,20 @@ def retry_failed_alert_events(db: Session, batch_size: int = 100) -> dict[str, i
         elif did_fail:
             failed += 1
         db.add(event)
+        log_audit_event(
+            db,
+            tenant_id=event.tenant_id,
+            actor_role="system",
+            action=f"alert_retry_{event.status}",
+            resource_type="notification_event",
+            resource_id=str(event.id),
+            details={
+                "vendor_id": event.vendor_id,
+                "incident_id": event.incident_id,
+                "recipient_email": event.recipient_email,
+                "attempt_count": event.attempt_count,
+            },
+        )
 
     if attempted:
         db.commit()

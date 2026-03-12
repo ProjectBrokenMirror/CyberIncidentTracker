@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+import csv
+from io import StringIO
+
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.auth import AuthContext, get_auth_context
+from app.core.auth import AuthContext, get_auth_context, require_manager_role
 from app.models.incident import Incident
+from app.models.notification_event import NotificationEvent
 from app.models.organization import Organization
 from app.models.vendor import Vendor
 from app.models.vendor_watcher import VendorWatcher
+from app.services.audit import log_audit_event
 from app.schemas.alerts import VendorWatcherCreate, VendorWatcherRead
 from app.schemas.incident import IncidentRead
 from app.schemas.vendor import VendorCreate, VendorImportRequest, VendorImportResult, VendorRead, VendorSummaryRead
@@ -206,6 +211,7 @@ def create_vendor_watcher(
     payload: VendorWatcherCreate,
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
+    _manager: None = Depends(require_manager_role),
 ) -> VendorWatcherRead:
     vendor = db.execute(
         select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
@@ -223,6 +229,15 @@ def create_vendor_watcher(
     if existing is not None:
         existing.is_active = payload.is_active
         db.add(existing)
+        log_audit_event(
+            db,
+            tenant_id=auth.tenant_id,
+            actor_role=auth.role,
+            action="watcher_updated",
+            resource_type="vendor_watcher",
+            resource_id=str(existing.id),
+            details={"vendor_id": vendor_id, "email": existing.email, "is_active": existing.is_active},
+        )
         db.commit()
         db.refresh(existing)
         return VendorWatcherRead.model_validate(existing, from_attributes=True)
@@ -234,6 +249,16 @@ def create_vendor_watcher(
         is_active=payload.is_active,
     )
     db.add(watcher)
+    db.flush()
+    log_audit_event(
+        db,
+        tenant_id=auth.tenant_id,
+        actor_role=auth.role,
+        action="watcher_created",
+        resource_type="vendor_watcher",
+        resource_id=str(watcher.id),
+        details={"vendor_id": vendor_id, "email": watcher.email, "is_active": watcher.is_active},
+    )
     db.commit()
     db.refresh(watcher)
     return VendorWatcherRead.model_validate(watcher, from_attributes=True)
@@ -245,6 +270,7 @@ def deactivate_vendor_watcher(
     watcher_id: int,
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
+    _manager: None = Depends(require_manager_role),
 ) -> VendorWatcherRead:
     vendor = db.execute(
         select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
@@ -264,6 +290,105 @@ def deactivate_vendor_watcher(
 
     watcher.is_active = False
     db.add(watcher)
+    log_audit_event(
+        db,
+        tenant_id=auth.tenant_id,
+        actor_role=auth.role,
+        action="watcher_deactivated",
+        resource_type="vendor_watcher",
+        resource_id=str(watcher.id),
+        details={"vendor_id": vendor_id, "email": watcher.email, "is_active": watcher.is_active},
+    )
     db.commit()
     db.refresh(watcher)
     return VendorWatcherRead.model_validate(watcher, from_attributes=True)
+
+
+@router.get("/{vendor_id}/incidents.csv")
+def export_vendor_incidents_csv(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> Response:
+    vendor = db.execute(
+        select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
+    ).scalar_one_or_none()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    incidents = (
+        db.execute(
+            select(Incident)
+            .where(Incident.org_id == vendor.organization_id)
+            .order_by(Incident.first_seen_at.desc(), Incident.id.desc())
+            .limit(5000)
+        )
+        .scalars()
+        .all()
+    )
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["incident_id", "org_id", "incident_type", "status", "severity", "confidence", "first_seen_at"])
+    for item in incidents:
+        writer.writerow([item.id, item.org_id, item.incident_type, item.status, item.severity, item.confidence, item.first_seen_at])
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="vendor-{vendor_id}-incidents.csv"'},
+    )
+
+
+@router.get("/{vendor_id}/alerts.csv")
+def export_vendor_alerts_csv(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> Response:
+    vendor = db.execute(
+        select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
+    ).scalar_one_or_none()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    events = (
+        db.execute(
+            select(NotificationEvent)
+            .where(NotificationEvent.vendor_id == vendor_id, NotificationEvent.tenant_id == auth.tenant_id)
+            .order_by(NotificationEvent.id.desc())
+            .limit(5000)
+        )
+        .scalars()
+        .all()
+    )
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "event_id",
+            "incident_id",
+            "recipient_email",
+            "status",
+            "attempt_count",
+            "error_message",
+            "created_at",
+            "sent_at",
+        ]
+    )
+    for item in events:
+        writer.writerow(
+            [
+                item.id,
+                item.incident_id,
+                item.recipient_email,
+                item.status,
+                item.attempt_count,
+                item.error_message or "",
+                item.created_at,
+                item.sent_at or "",
+            ]
+        )
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="vendor-{vendor_id}-alerts.csv"'},
+    )

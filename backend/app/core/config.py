@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     require_api_key: bool = False
     api_keys: str = ""
     default_tenant_id: str = "default"
+    default_user_role: str = "manager"
+    manager_roles: str = "manager,admin"
     enable_email_alerts: bool = False
     smtp_host: str = "localhost"
     smtp_port: int = 25
