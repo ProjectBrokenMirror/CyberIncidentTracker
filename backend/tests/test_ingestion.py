@@ -2,7 +2,10 @@ from app.connectors.base import RawIncidentRecord, SourceConnector
 from app.models.incident import Incident
 from app.models.ingestion_run import IngestionRun
 from app.models.incident_source import IncidentSource
+from app.models.notification_event import NotificationEvent
 from app.models.organization import Organization
+from app.models.vendor import Vendor
+from app.models.vendor_watcher import VendorWatcher
 from app.tasks.ingestion import run_wave1_ingestion
 
 
@@ -89,3 +92,30 @@ def test_run_wave1_ingestion_skips_duplicate_sources(monkeypatch, db_session) ->
     assert len(incidents) == 1
     assert len(sources) == 1
     assert len(runs) == 2
+
+
+def test_run_wave1_ingestion_dispatches_watcher_alerts(monkeypatch, db_session) -> None:
+    org = Organization(canonical_name="Acme Corp", domain="acme.example")
+    db_session.add(org)
+    db_session.flush()
+    vendor = Vendor(tenant_id="tenant-a", organization_id=org.id, owner="Risk Team", criticality="high")
+    db_session.add(vendor)
+    db_session.flush()
+    watcher = VendorWatcher(tenant_id="tenant-a", vendor_id=vendor.id, email="risk@example.com", is_active=True)
+    db_session.add(watcher)
+    db_session.commit()
+
+    monkeypatch.setattr("app.tasks.ingestion.wave1_connectors", lambda: [FakeConnector()])
+    monkeypatch.setattr("app.tasks.alerts.send_email_alert", lambda *_args, **_kwargs: (True, None))
+
+    result = run_wave1_ingestion(db=db_session)
+    assert result["total_persisted"] == 1
+    assert result["total_alerts_attempted"] == 1
+    assert result["total_alerts_sent"] == 1
+    assert result["total_alerts_failed"] == 0
+
+    events = db_session.query(NotificationEvent).all()
+    runs = db_session.query(IngestionRun).all()
+    assert len(events) == 1
+    assert events[0].status == "sent"
+    assert runs[-1].total_alerts_sent == 1

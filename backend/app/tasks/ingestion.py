@@ -14,6 +14,7 @@ from app.pipeline.confidence import score_confidence
 from app.pipeline.dedup import deduplicate
 from app.pipeline.entity_match import match_organization
 from app.pipeline.normalize import normalize_records
+from app.tasks.alerts import dispatch_alerts_for_incident
 
 
 def _parse_published_at(value: str | None) -> datetime | None:
@@ -38,6 +39,9 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
     total_unmatched = 0
     total_skipped_duplicates = 0
     total_organizations_created = 0
+    total_alerts_attempted = 0
+    total_alerts_sent = 0
+    total_alerts_failed = 0
     auto_create_sources = {
         source.strip()
         for source in settings.auto_create_org_sources.split(",")
@@ -116,6 +120,15 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
                         published_at=_parse_published_at(scored.get("published_at")),
                     )
                 )
+                alert_counts = dispatch_alerts_for_incident(
+                    db=db,
+                    incident=incident,
+                    source_name=source_name,
+                    source_url=source_url,
+                )
+                total_alerts_attempted += alert_counts["attempted"]
+                total_alerts_sent += alert_counts["sent"]
+                total_alerts_failed += alert_counts["failed"]
                 seen_source_keys_in_run.add(source_key)
                 total_persisted += 1
         finished_at = datetime.now()
@@ -131,6 +144,9 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
                 total_unmatched=total_unmatched,
                 total_skipped_duplicates=total_skipped_duplicates,
                 total_organizations_created=total_organizations_created,
+                total_alerts_attempted=total_alerts_attempted,
+                total_alerts_sent=total_alerts_sent,
+                total_alerts_failed=total_alerts_failed,
             )
         )
         db.commit()
@@ -146,4 +162,7 @@ def run_wave1_ingestion(db: Session | None = None) -> dict[str, int]:
         "total_unmatched": total_unmatched,
         "total_skipped_duplicates": total_skipped_duplicates,
         "total_organizations_created": total_organizations_created,
+        "total_alerts_attempted": total_alerts_attempted,
+        "total_alerts_sent": total_alerts_sent,
+        "total_alerts_failed": total_alerts_failed,
     }

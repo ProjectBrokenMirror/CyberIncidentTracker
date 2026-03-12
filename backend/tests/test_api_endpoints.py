@@ -174,3 +174,28 @@ def test_api_key_auth_toggle(client) -> None:
     finally:
         settings.require_api_key = previous_require
         settings.api_keys = previous_keys
+
+
+def test_vendor_watchers_create_and_list(client) -> None:
+    org_id = client.post("/api/v1/organizations/", json={"canonical_name": "Watcher Org"}).json()["id"]
+    vendor_id = client.post(
+        "/api/v1/vendors/",
+        json={"organization_id": org_id, "owner": "Risk Team", "criticality": "high"},
+        headers={"X-Tenant-ID": "tenant-a"},
+    ).json()["id"]
+
+    create = client.post(
+        f"/api/v1/vendors/{vendor_id}/watchers",
+        json={"email": "alerts@example.com", "is_active": True},
+        headers={"X-Tenant-ID": "tenant-a"},
+    )
+    assert create.status_code == 200
+    assert create.json()["email"] == "alerts@example.com"
+
+    listed = client.get(f"/api/v1/vendors/{vendor_id}/watchers", headers={"X-Tenant-ID": "tenant-a"})
+    assert listed.status_code == 200
+    assert len(listed.json()["items"]) == 1
+
+    # Tenant B cannot access tenant A vendor watchers.
+    denied = client.get(f"/api/v1/vendors/{vendor_id}/watchers", headers={"X-Tenant-ID": "tenant-b"})
+    assert denied.status_code == 404

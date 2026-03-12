@@ -7,6 +7,8 @@ from app.core.auth import AuthContext, get_auth_context
 from app.models.incident import Incident
 from app.models.organization import Organization
 from app.models.vendor import Vendor
+from app.models.vendor_watcher import VendorWatcher
+from app.schemas.alerts import VendorWatcherCreate, VendorWatcherRead
 from app.schemas.incident import IncidentRead
 from app.schemas.vendor import VendorCreate, VendorImportRequest, VendorImportResult, VendorRead, VendorSummaryRead
 
@@ -171,3 +173,67 @@ def get_vendor_incidents(
         "organization_name": organization_name,
         "items": [IncidentRead.model_validate(item, from_attributes=True) for item in incidents],
     }
+
+
+@router.get("/{vendor_id}/watchers")
+def list_vendor_watchers(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> dict[str, list[VendorWatcherRead]]:
+    vendor = db.execute(
+        select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
+    ).scalar_one_or_none()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    watchers = (
+        db.execute(
+            select(VendorWatcher)
+            .where(VendorWatcher.vendor_id == vendor_id, VendorWatcher.tenant_id == auth.tenant_id)
+            .order_by(VendorWatcher.id.desc())
+            .limit(200)
+        )
+        .scalars()
+        .all()
+    )
+    return {"items": [VendorWatcherRead.model_validate(item, from_attributes=True) for item in watchers]}
+
+
+@router.post("/{vendor_id}/watchers", response_model=VendorWatcherRead)
+def create_vendor_watcher(
+    vendor_id: int,
+    payload: VendorWatcherCreate,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> VendorWatcherRead:
+    vendor = db.execute(
+        select(Vendor).where(Vendor.id == vendor_id, Vendor.tenant_id == auth.tenant_id)
+    ).scalar_one_or_none()
+    if vendor is None:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    existing = db.execute(
+        select(VendorWatcher).where(
+            VendorWatcher.vendor_id == vendor_id,
+            VendorWatcher.tenant_id == auth.tenant_id,
+            VendorWatcher.email == payload.email,
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.is_active = payload.is_active
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return VendorWatcherRead.model_validate(existing, from_attributes=True)
+
+    watcher = VendorWatcher(
+        tenant_id=auth.tenant_id,
+        vendor_id=vendor_id,
+        email=payload.email,
+        is_active=payload.is_active,
+    )
+    db.add(watcher)
+    db.commit()
+    db.refresh(watcher)
+    return VendorWatcherRead.model_validate(watcher, from_attributes=True)

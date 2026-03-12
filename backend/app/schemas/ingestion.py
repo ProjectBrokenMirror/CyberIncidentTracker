@@ -15,3 +15,6 @@ class IngestionRunRead(BaseModel):
     total_unmatched: int
     total_skipped_duplicates: int
     total_organizations_created: int
+    total_alerts_attempted: int
+    total_alerts_sent: int
+    total_alerts_failed: int

@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     require_api_key: bool = False
     api_keys: str = ""
     default_tenant_id: str = "default"
+    enable_email_alerts: bool = False
+    smtp_host: str = "localhost"
+    smtp_port: int = 25
+    smtp_use_tls: bool = False
+    smtp_username: str = ""
+    smtp_password: str = ""
+    alerts_from_email: str = "alerts@incidentfinder.local"
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     trusted_hosts: str = "localhost,127.0.0.1,testserver"
 

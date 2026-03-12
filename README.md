@@ -45,6 +45,11 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
 - Vendor endpoints are tenant-scoped by `X-Tenant-ID` (defaults to `DEFAULT_TENANT_ID`).
 - Frontend server-side fetches can send these headers via `frontend/.env.local` (`API_SERVER_KEY`, `API_TENANT_ID`).
 - New endpoint: `GET /api/v1/vendors/{vendor_id}/incidents` returns a vendor-linked incident timeline.
+- Watcher endpoints:
+  - `POST /api/v1/vendors/{vendor_id}/watchers` to subscribe an email to a vendor
+  - `GET /api/v1/vendors/{vendor_id}/watchers` to list active/inactive watchers
+- Ops metrics endpoint: `GET /api/v1/ops/alerts/metrics`.
+- Email alert config lives in `backend/.env` (`ENABLE_EMAIL_ALERTS`, `SMTP_*`, `ALERTS_FROM_EMAIL`).
 
 ## VPS Preflight
 

@@ -20,3 +20,6 @@ class IngestionRun(Base):
     total_unmatched: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_skipped_duplicates: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_organizations_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_alerts_attempted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_alerts_sent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_alerts_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
