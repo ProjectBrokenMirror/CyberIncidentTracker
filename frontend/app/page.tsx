@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type VendorSummary = {
   vendor_id: number;
   organization_id: number;
@@ -56,7 +58,9 @@ export default async function HomePage() {
           <tbody>
             {vendors.map((vendor) => (
               <tr key={vendor.vendor_id}>
-                <td style={{ borderBottom: "1px solid #1e293b", padding: "0.5rem" }}>{vendor.organization_name}</td>
+                <td style={{ borderBottom: "1px solid #1e293b", padding: "0.5rem" }}>
+                  <Link href={`/vendors/${vendor.vendor_id}`}>{vendor.organization_name}</Link>
+                </td>
                 <td style={{ borderBottom: "1px solid #1e293b", padding: "0.5rem", textTransform: "capitalize" }}>
                   {vendor.criticality}
                 </td>

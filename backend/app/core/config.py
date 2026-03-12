@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     sec_user_agent: str = "IncidentFinder/0.1 (security-research@example.com)"
     connector_max_records: int = 50
     auto_create_org_sources: str = "sec_edgar_8k,hhs_ocr"
+    require_api_key: bool = False
+    api_keys: str = ""
+    default_tenant_id: str = "default"
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     trusted_hosts: str = "localhost,127.0.0.1,testserver"
 

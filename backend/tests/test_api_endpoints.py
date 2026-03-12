@@ -1,3 +1,6 @@
+from app.core.config import settings
+
+
 def test_create_and_list_organizations(client) -> None:
     create_response = client.post(
         "/api/v1/organizations/",
@@ -119,3 +122,55 @@ def test_vendor_import_creates_vendors_for_orgs_with_incidents(client) -> None:
     assert len(list_vendors) == 2
     assert all(item["organization_id"] in {org_a, org_b} for item in list_vendors)
     assert all(item["organization_id"] != org_c for item in list_vendors)
+
+
+def test_vendor_incidents_endpoint_returns_timeline(client) -> None:
+    org_id = client.post("/api/v1/organizations/", json={"canonical_name": "Acme"}).json()["id"]
+    vendor_id = client.post("/api/v1/vendors/", json={"organization_id": org_id}).json()["id"]
+
+    client.post(
+        "/api/v1/incidents/",
+        json={"org_id": org_id, "incident_type": "data_breach", "status": "new", "severity": "high", "confidence": 0.9},
+    )
+
+    response = client.get(f"/api/v1/vendors/{vendor_id}/incidents")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["vendor_id"] == vendor_id
+    assert payload["organization_id"] == org_id
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["incident_type"] == "data_breach"
+
+
+def test_vendor_tenant_scoping(client) -> None:
+    org_id = client.post("/api/v1/organizations/", json={"canonical_name": "Tenant Scoped"}).json()["id"]
+    create_response = client.post(
+        "/api/v1/vendors/",
+        json={"organization_id": org_id},
+        headers={"X-Tenant-ID": "tenant-a"},
+    )
+    assert create_response.status_code == 200
+    vendor_id = create_response.json()["id"]
+
+    visible_in_tenant_a = client.get("/api/v1/vendors/", headers={"X-Tenant-ID": "tenant-a"})
+    visible_in_tenant_b = client.get("/api/v1/vendors/", headers={"X-Tenant-ID": "tenant-b"})
+    assert len(visible_in_tenant_a.json()["items"]) == 1
+    assert len(visible_in_tenant_b.json()["items"]) == 0
+
+    vendor_incidents_other_tenant = client.get(f"/api/v1/vendors/{vendor_id}/incidents", headers={"X-Tenant-ID": "tenant-b"})
+    assert vendor_incidents_other_tenant.status_code == 404
+
+
+def test_api_key_auth_toggle(client) -> None:
+    previous_require = settings.require_api_key
+    previous_keys = settings.api_keys
+    settings.require_api_key = True
+    settings.api_keys = "test-key"
+    try:
+        blocked = client.get("/api/v1/organizations/")
+        allowed = client.get("/api/v1/organizations/", headers={"X-API-Key": "test-key"})
+        assert blocked.status_code == 401
+        assert allowed.status_code == 200
+    finally:
+        settings.require_api_key = previous_require
+        settings.api_keys = previous_keys

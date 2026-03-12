@@ -33,6 +33,15 @@ Monorepo for a SaaS platform that aggregates, normalizes, and surfaces cybersecu
    - Use systemd units in `infra/systemd/` (API, worker, beat, frontend).
    - Optional Nginx reverse proxy config in `infra/nginx/cyberincident.conf`.
 
+## API security and tenancy (MVP)
+
+- API key auth is toggleable with env vars in `backend/.env`:
+  - `REQUIRE_API_KEY=true`
+  - `API_KEYS=replace-with-long-random-key`
+- When enabled, include `X-API-Key` on all API calls.
+- Vendor endpoints are tenant-scoped by `X-Tenant-ID` (defaults to `DEFAULT_TENANT_ID`).
+- New endpoint: `GET /api/v1/vendors/{vendor_id}/incidents` returns a vendor-linked incident timeline.
+
 ## VPS Preflight
 
 - Update `backend/.env` with production-safe values:
