@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getServerApiHeaders } from "./lib/apiHeaders";
 
 type VendorSummary = {
   vendor_id: number;
@@ -14,7 +15,10 @@ const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 async function fetchVendorSummary(): Promise<VendorSummary[]> {
   try {
-    const response = await fetch(`${apiBase}/api/v1/vendors/summary`, { cache: "no-store" });
+    const response = await fetch(`${apiBase}/api/v1/vendors/summary`, {
+      cache: "no-store",
+      headers: getServerApiHeaders(),
+    });
     if (!response.ok) {
       return [];
     }
